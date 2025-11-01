@@ -1,0 +1,8 @@
+streamlit==1.38.0
+duckdb==1.0.0
+google-genai==0.3.0
+chromadb==0.5.4
+sentence-transformers==3.0.1
+numpy
+pandas
+requests
