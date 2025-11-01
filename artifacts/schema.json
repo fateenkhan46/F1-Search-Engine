@@ -1,0 +1,530 @@
+{
+  "circuits": [
+    {
+      "name": "circuitId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "circuitRef",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "location",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "country",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "lat",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "lng",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "alt",
+      "type": "BIGINT"
+    },
+    {
+      "name": "url",
+      "type": "VARCHAR"
+    }
+  ],
+  "constructor_name": [
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "name",
+      "type": "VARCHAR"
+    }
+  ],
+  "constructor_results": [
+    {
+      "name": "constructorResultsId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "points",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "status",
+      "type": "VARCHAR"
+    }
+  ],
+  "constructor_standings": [
+    {
+      "name": "constructorStandingsId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "points",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "position",
+      "type": "BIGINT"
+    },
+    {
+      "name": "positionText",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "wins",
+      "type": "BIGINT"
+    }
+  ],
+  "constructors": [
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorRef",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "nationality",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "url",
+      "type": "VARCHAR"
+    }
+  ],
+  "driver_name": [
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "name",
+      "type": "VARCHAR"
+    }
+  ],
+  "driver_standings": [
+    {
+      "name": "driverStandingsId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "points",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "position",
+      "type": "BIGINT"
+    },
+    {
+      "name": "positionText",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "wins",
+      "type": "BIGINT"
+    }
+  ],
+  "drivers": [
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverRef",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "number",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "code",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "forename",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "surname",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "dob",
+      "type": "DATE"
+    },
+    {
+      "name": "nationality",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "url",
+      "type": "VARCHAR"
+    }
+  ],
+  "lap_times": [
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "lap",
+      "type": "BIGINT"
+    },
+    {
+      "name": "position",
+      "type": "BIGINT"
+    },
+    {
+      "name": "time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "milliseconds",
+      "type": "BIGINT"
+    }
+  ],
+  "pit_stops": [
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "stop",
+      "type": "BIGINT"
+    },
+    {
+      "name": "lap",
+      "type": "BIGINT"
+    },
+    {
+      "name": "time",
+      "type": "TIME"
+    },
+    {
+      "name": "duration",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "milliseconds",
+      "type": "BIGINT"
+    }
+  ],
+  "qualifying": [
+    {
+      "name": "qualifyId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "number",
+      "type": "BIGINT"
+    },
+    {
+      "name": "position",
+      "type": "BIGINT"
+    },
+    {
+      "name": "q1",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "q2",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "q3",
+      "type": "VARCHAR"
+    }
+  ],
+  "races": [
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "year",
+      "type": "BIGINT"
+    },
+    {
+      "name": "round",
+      "type": "BIGINT"
+    },
+    {
+      "name": "circuitId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "name",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "date",
+      "type": "DATE"
+    },
+    {
+      "name": "time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "url",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp1_date",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp1_time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp2_date",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp2_time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp3_date",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fp3_time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "quali_date",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "quali_time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "sprint_date",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "sprint_time",
+      "type": "VARCHAR"
+    }
+  ],
+  "results": [
+    {
+      "name": "resultId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "number",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "grid",
+      "type": "BIGINT"
+    },
+    {
+      "name": "position",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "positionText",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "positionOrder",
+      "type": "BIGINT"
+    },
+    {
+      "name": "points",
+      "type": "DOUBLE"
+    },
+    {
+      "name": "laps",
+      "type": "BIGINT"
+    },
+    {
+      "name": "time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "milliseconds",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fastestLap",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "rank",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fastestLapTime",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fastestLapSpeed",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "statusId",
+      "type": "BIGINT"
+    }
+  ],
+  "seasons": [
+    {
+      "name": "year",
+      "type": "BIGINT"
+    },
+    {
+      "name": "url",
+      "type": "VARCHAR"
+    }
+  ],
+  "sprint_results": [
+    {
+      "name": "resultId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "raceId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "driverId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "constructorId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "number",
+      "type": "BIGINT"
+    },
+    {
+      "name": "grid",
+      "type": "BIGINT"
+    },
+    {
+      "name": "position",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "positionText",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "positionOrder",
+      "type": "BIGINT"
+    },
+    {
+      "name": "points",
+      "type": "BIGINT"
+    },
+    {
+      "name": "laps",
+      "type": "BIGINT"
+    },
+    {
+      "name": "time",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "milliseconds",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fastestLap",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "fastestLapTime",
+      "type": "VARCHAR"
+    },
+    {
+      "name": "statusId",
+      "type": "BIGINT"
+    }
+  ],
+  "status": [
+    {
+      "name": "statusId",
+      "type": "BIGINT"
+    },
+    {
+      "name": "status",
+      "type": "VARCHAR"
+    }
+  ]
+}
