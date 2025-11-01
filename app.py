@@ -4,7 +4,9 @@ import re
 import streamlit as st
 
 import os, streamlit as st
-os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY") or st.secrets["GEMINI_API_KEY"]
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", st.secrets.get("GEMINI_API_KEY", ""))
+LIVE_OK = bool(GEMINI_API_KEY)
+
 
 # ---- Optional backends (use your existing backend files if present) ----
 LLM_OK, sql_answer = False, None
