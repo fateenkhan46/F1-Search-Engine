@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import date
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -353,41 +354,130 @@ def answer_with_db(intent: str, args: dict) -> Optional[str]:
     return None
 
 TRANSIENT_CODES = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "INTERNAL")
+QUOTA_CODES = ("429", "RESOURCE_EXHAUSTED")
 
 def _is_transient(err: Exception) -> bool:
-    msg = str(err)
-    return any(code in msg for code in TRANSIENT_CODES)
+    return any(code in str(err) for code in TRANSIENT_CODES)
+
+def _is_quota(err: Exception) -> bool:
+    return any(code in str(err) for code in QUOTA_CODES)
+
+# ----------------------------
+# Live F1 data (free, no key): Jolpica-F1 API (Ergast-compatible)
+# ----------------------------
+JOLPICA = "https://api.jolpi.ca/ergast/f1"
+RECENCY_RE = r"\b(latest|recent|last|current|this season|this year|standings?|leader|leading|now|today|next|20(2[5-9]))\b"
+
+@st.cache_data(ttl=600, show_spinner=False)  # cache 10 min: fresh enough, polite to the API
+def _jolpica(path: str) -> Optional[dict]:
+    try:
+        r = requests.get(f"{JOLPICA}/{path}", timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print(f"[live-data] {path} failed: {type(e).__name__}: {e}", flush=True)
+        return None
+
+def live_f1_context() -> str:
+    """Fetch the latest race result + current standings as plain-text context for RAG."""
+    parts = []
+    data = _jolpica("current/last/results.json")
+    try:
+        race = data["MRData"]["RaceTable"]["Races"][0]
+        top = [f"{r['position']}. {r['Driver']['givenName']} {r['Driver']['familyName']} ({r['Constructor']['name']})"
+               for r in race["Results"][:5]]
+        parts.append(f"Most recent race: {race['season']} {race['raceName']} (round {race['round']}, "
+                     f"{race['date']}, {race['Circuit']['circuitName']}). Top 5: " + "; ".join(top))
+    except Exception:
+        pass
+    data = _jolpica("current/driverStandings.json")
+    try:
+        lst = data["MRData"]["StandingsTable"]["StandingsLists"][0]
+        top = [f"{d['position']}. {d['Driver']['givenName']} {d['Driver']['familyName']} ({d['points']} pts)"
+               for d in lst["DriverStandings"][:5]]
+        parts.append(f"{lst['season']} driver standings after round {lst['round']}: " + "; ".join(top))
+    except Exception:
+        pass
+    return "\n".join(parts)
+
+# ----------------------------
+# Gemini (search grounding optional)
+# ----------------------------
+@st.cache_resource(show_spinner=False)
+def _search_state() -> dict:
+    # Shared across users: once search quota is hit, skip it for a while instead of wasting calls
+    return {"disabled_until": 0.0}
+
+def _search_config():
+    from google.genai import types
+    return types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+
+def _format_sources(rsp, limit: int = 3) -> List[str]:
+    try:
+        chunks = rsp.candidates[0].grounding_metadata.grounding_chunks or []
+    except Exception:
+        return []
+    links, seen = [], set()
+    for ch in chunks:
+        web = getattr(ch, "web", None)
+        if web and web.uri and web.uri not in seen:
+            seen.add(web.uri)
+            links.append(f"[{web.title or 'source'}]({web.uri})")
+        if len(links) >= limit:
+            break
+    return links
 
 def answer_with_live(q: str) -> Optional[str]:
-    """Gemini fallback with retry + backoff and a fallback model for transient errors."""
+    """Live agent = RAG over live F1 data (Jolpica) + Gemini, with optional Google Search grounding.
+    Degrades gracefully: search off on quota -> plain Gemini -> raw live data if Gemini is down."""
+    context = live_f1_context() if re.search(RECENCY_RE, q.lower()) else ""
+    ctx_sources = ["[Jolpica F1 API](https://api.jolpi.ca/ergast/f1/)"] if context else []
+    raw_fallback = f"**Latest F1 data** (AI summary unavailable right now):\n\n{context}" if context else None
+
     if not LIVE_OK:
-        return None
+        return raw_fallback
     client = get_gemini_client()
+    today = date.today().strftime("%B %d, %Y")
     prompt = (
-        "Answer the F1-related question concisely (2–4 sentences). "
-        "If the question is not F1-specific, gently steer back to F1. "
-        "Question: " + q
+        f"Today's date is {today}. Answer the F1-related question concisely (2–4 sentences), with specific dates. "
+        "If the question is not F1-specific, gently steer back to F1.\n"
+        + (f"Use this LIVE data as the source of truth for recent results:\n{context}\n" if context else "")
+        + "Question: " + q
     )
+    state = _search_state()
     models = [m for m in dict.fromkeys([GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) if m]
     busy = False
     for model in models:
-        for attempt in range(3):  # waits 1s, 2s between tries
+        use_search = time.time() >= state["disabled_until"]
+        attempt = 0
+        while attempt < 3:
             try:
-                rsp = client.models.generate_content(model=model, contents=prompt)
+                kwargs = {"config": _search_config()} if use_search else {}
+                rsp = client.models.generate_content(model=model, contents=prompt, **kwargs)
                 txt = (rsp.text or "").strip()
                 if txt:
-                    if model != GEMINI_MODEL:
-                        print(f"[live] answered by fallback model {model}", flush=True)
-                    return txt
+                    sources = ctx_sources + (_format_sources(rsp) if use_search else [])
+                    return txt + (("\n\n**Sources:** " + " · ".join(sources)) if sources else "")
                 print(f"[live] empty response from {model}: {rsp!r}"[:2000], flush=True)
-                break  # empty answer: retrying the same model won't help
+                break
             except Exception as e:
-                print(f"[live] {model} attempt {attempt + 1} failed: {type(e).__name__}: {e}"[:500], flush=True)
-                if not _is_transient(e):
-                    break  # e.g. bad key / model not found: try the next model
-                busy = True
-                if attempt < 2:
-                    time.sleep(2 ** attempt)
+                print(f"[live] {model} (search={'on' if use_search else 'off'}) attempt {attempt + 1} failed: "
+                      f"{type(e).__name__}: {e}"[:300], flush=True)
+                if use_search and (_is_quota(e) or not _is_transient(e)):
+                    # Search grounding not in quota/plan: turn it off for 15 min and retry right away without it
+                    state["disabled_until"] = time.time() + 900
+                    use_search = False
+                    print("[live] search grounding disabled for 15 min", flush=True)
+                    continue
+                if _is_transient(e):
+                    busy = True
+                    attempt += 1
+                    if attempt < 3:
+                        time.sleep(2 ** (attempt - 1))
+                    continue
+                break  # bad key / model not found: try next model
+    if raw_fallback:
+        return raw_fallback
     if busy:
         return "The live agent is busy right now (Gemini is under high demand). Please try again in a minute."
     return None
