@@ -1,8 +1,8 @@
+# Runtime deps for app.py only (keeps the Docker image small).
+# Full dev deps for backend/ (chromadb, sentence-transformers) are in requirements-full.txt
 streamlit==1.38.0
 duckdb==1.0.0
-google-genai==0.3.0
-chromadb==0.5.4
-sentence-transformers==3.0.1
-numpy
+google-genai>=1.0
+numpy<2
 pandas
 requests

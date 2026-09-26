@@ -1,4 +1,5 @@
 import os
+import time
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -8,14 +9,33 @@ import pandas as pd
 import requests
 import streamlit as st
 
+# Must be the FIRST Streamlit command in the script
+st.set_page_config(page_title="F1 Smart Search", page_icon="🏁", layout="wide")
+
 # ----------------------------
 # Secrets / Environment
 # ----------------------------
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", st.secrets.get("GEMINI_API_KEY", ""))
+def _get_secret(name: str, default: str = "") -> str:
+    """Env var first (Docker/Cloud Run), then Streamlit secrets (local), never crash."""
+    val = os.getenv(name)
+    if val:
+        return val
+    secrets_files = [Path.cwd() / ".streamlit" / "secrets.toml",
+                     Path.home() / ".streamlit" / "secrets.toml"]
+    if not any(f.exists() for f in secrets_files):
+        return default
+    try:
+        return st.secrets.get(name, default)
+    except Exception:
+        return default
+
+GEMINI_API_KEY = _get_secret("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY  # some clients read only env
 
-DB_URL = st.secrets.get("DB_URL", "")  # optional: URL to download f1.duckdb on first boot
+GEMINI_MODEL = _get_secret("GEMINI_MODEL", "gemini-3.8-flash")  # override without code changes
+GEMINI_FALLBACK_MODEL = _get_secret("GEMINI_FALLBACK_MODEL", "gemini-flash-latest")  # used if the main model is overloaded
+DB_URL = _get_secret("DB_URL")  # optional: URL to download f1.duckdb on first boot
 APP_DIR = Path(__file__).parent
 DB_PATH = APP_DIR / "f1.duckdb"
 
@@ -193,7 +213,7 @@ def q_points_by_race_for_constructor(team: str, year: Optional[int]) -> pd.DataF
 # NL → action router
 # ----------------------------
 YEAR_RE = r"(19|20)\d{2}"
-TEAM_RE = r"(ferrari|mercedes|red bull|mclaren|aston martin|williams|alpine|sauber|haas|rb|alphatauri|toro rosso|renault)"
+TEAM_RE = r"\b(ferrari|mercedes|red bull|mclaren|aston martin|williams|alpine|sauber|haas|rb|alphatauri|toro rosso|renault)\b"  # \b stops "rb" matching inside "turbo"
 
 def parse_question(q: str):
     """
@@ -247,6 +267,15 @@ def parse_question(q: str):
 # ----------------------------
 # Answer engine
 # ----------------------------
+def _driver_exists(name: Optional[str]) -> bool:
+    """True only if the parsed name is a real driver (avoids 'What Does' being treated as a driver)."""
+    if not name:
+        return False
+    df = _safe_query(
+        "SELECT 1 FROM drivers WHERE (forename || ' ' || surname) = ? LIMIT 1", (name,)
+    )
+    return not df.empty
+
 def answer_with_db(intent: str, args: dict) -> Optional[str]:
     """Return a markdown string or None if nothing found / no DB."""
     if not DB_OK:
@@ -263,6 +292,8 @@ def answer_with_db(intent: str, args: dict) -> Optional[str]:
 
     if intent == "driver_wins":
         driver = args.get("driver")
+        if not _driver_exists(driver):
+            return None
         year = args.get("year") or _latest_year()
         df = q_driver_wins(driver, year)
         if df.empty:
@@ -301,7 +332,7 @@ def answer_with_db(intent: str, args: dict) -> Optional[str]:
     if intent == "auto":
         team = args.get("team")
         driver = args.get("driver")
-        year = args.get("year") or _latest_year()
+        year = args.get("year")  # only an EXPLICIT year; no silent default
         if team:
             out = answer_with_db("team_drivers", {"team": team, "year": year})
             if out:
@@ -313,7 +344,7 @@ def answer_with_db(intent: str, args: dict) -> Optional[str]:
             out = answer_with_db("champ_constructor", {"year": year})
             if out:
                 return out
-        if driver:
+        if driver and _driver_exists(driver):
             out = answer_with_db("driver_wins", {"driver": driver, "year": year})
             if out:
                 return out
@@ -321,25 +352,45 @@ def answer_with_db(intent: str, args: dict) -> Optional[str]:
 
     return None
 
+TRANSIENT_CODES = ("429", "500", "503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "INTERNAL")
+
+def _is_transient(err: Exception) -> bool:
+    msg = str(err)
+    return any(code in msg for code in TRANSIENT_CODES)
+
 def answer_with_live(q: str) -> Optional[str]:
-    """Very lightweight Live ‘summary’ using Gemini (no web search)."""
+    """Gemini fallback with retry + backoff and a fallback model for transient errors."""
     if not LIVE_OK:
         return None
-    try:
-        client = get_gemini_client()
-        prompt = (
-            "Answer the F1-related question concisely (2–4 sentences). "
-            "If the question is not F1-specific, gently steer back to F1. "
-            "Question: " + q
-        )
-        rsp = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        txt = (rsp.text or "").strip()
-        return txt if txt else None
-    except Exception:
-        return None
+    client = get_gemini_client()
+    prompt = (
+        "Answer the F1-related question concisely (2–4 sentences). "
+        "If the question is not F1-specific, gently steer back to F1. "
+        "Question: " + q
+    )
+    models = [m for m in dict.fromkeys([GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) if m]
+    busy = False
+    for model in models:
+        for attempt in range(3):  # waits 1s, 2s between tries
+            try:
+                rsp = client.models.generate_content(model=model, contents=prompt)
+                txt = (rsp.text or "").strip()
+                if txt:
+                    if model != GEMINI_MODEL:
+                        print(f"[live] answered by fallback model {model}", flush=True)
+                    return txt
+                print(f"[live] empty response from {model}: {rsp!r}"[:2000], flush=True)
+                break  # empty answer: retrying the same model won't help
+            except Exception as e:
+                print(f"[live] {model} attempt {attempt + 1} failed: {type(e).__name__}: {e}"[:500], flush=True)
+                if not _is_transient(e):
+                    break  # e.g. bad key / model not found: try the next model
+                busy = True
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+    if busy:
+        return "The live agent is busy right now (Gemini is under high demand). Please try again in a minute."
+    return None
 
 def build_answer(q: str) -> str:
     intent, args = parse_question(q)
@@ -361,7 +412,6 @@ def build_answer(q: str) -> str:
 # ----------------------------
 # UI
 # ----------------------------
-st.set_page_config(page_title="F1 Smart Search", page_icon="🏁", layout="wide")
 
 title_col = st.columns([1, 6, 1])[1]
 with title_col:

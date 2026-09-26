@@ -1,0 +1,10 @@
+# Local development: `docker compose up --build`
+services:
+  f1-search:
+    build: .
+    image: f1-search-engine:local
+    ports:
+      - "8080:8080"      # host:container -> open http://localhost:8080
+    env_file:
+      - .env             # holds GEMINI_API_KEY; never committed, never baked into image
+    restart: unless-stopped
