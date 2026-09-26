@@ -4,7 +4,7 @@ A dual-agent AI search system for querying Formula 1 data — combining a struct
 
 ## Overview
 
-🔗 **Live demo:** https://f1-smart-search.onrender.com
+🔗 **Live demo:** https://f1-search-engine.onrender.com/
 *(Free tier: first load may take ~1 min to wake up)*
 
 **Stack:** Streamlit · DuckDB · Gemini · Jolpica F1 API · Docker · Render (auto-deploy on push)
